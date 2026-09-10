@@ -1,9 +1,241 @@
-generator client { provider = "prisma-client-js" }
-datasource db { provider = "sqlite"; url = env("DATABASE_URL") }
-enum ItemStatus { DRAFT PUBLISHED RESERVED EXCHANGE_PENDING COMPLETED HIDDEN REJECTED }
-enum ExchangeStatus { REQUESTED ACCEPTED DECLINED CONFIRMED }
-model User { id String @id @default(cuid()) name String email String @unique passwordHash String? city String district String pointsBalance Int @default(0) rating Float @default(5) items Item[] favorites Favorite[] transactions PointsTransaction[] createdAt DateTime @default(now()) }
-model Item { id String @id @default(cuid()) ownerId String owner User @relation(fields:[ownerId],references:[id]) title String description String category String brand String? size String color String condition String pointsPrice Int city String district String latitude Float longitude Float status ItemStatus @default(PUBLISHED) images ItemImage[] favorites Favorite[] createdAt DateTime @default(now()) }
-model ItemImage { id String @id @default(cuid()) itemId String item Item @relation(fields:[itemId],references:[id],onDelete:Cascade) imageUrl String order Int @default(0) }
-model Favorite { userId String itemId String user User @relation(fields:[userId],references:[id],onDelete:Cascade) item Item @relation(fields:[itemId],references:[id],onDelete:Cascade) @@id([userId,itemId]) }
-model PointsTransaction { id String @id @default(cuid()) userId String user User @relation(fields:[userId],references:[id]) amount Int description String exchangeId String? createdAt DateTime @default(now()) }
+generator client {
+  provider = "prisma-client-js"
+}
+
+// Production schema. Railway provides DATABASE_URL from its PostgreSQL service.
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ItemStatus {
+  DRAFT
+  PUBLISHED
+  RESERVED
+  EXCHANGE_PENDING
+  COMPLETED
+  HIDDEN
+  REJECTED
+  ARCHIVED
+}
+
+enum ExchangeStatus {
+  REQUESTED
+  ACCEPTED
+  MEETING_PROPOSED
+  MEETING_SCHEDULED
+  AWAITING_CONFIRMATION
+  COMPLETED
+  DECLINED
+  CANCELLED
+  EXPIRED
+  DISPUTED
+}
+
+enum TransactionType {
+  RESERVE
+  RELEASE
+  DEBIT
+  CREDIT
+  ADJUSTMENT
+}
+
+enum LocationKind {
+  OWNER_CHOICE
+  PUBLIC_PLACE
+  MAP_POINT
+}
+
+enum ComplaintTarget {
+  ITEM
+  USER
+  MESSAGE
+  EXCHANGE
+}
+
+enum ComplaintStatus {
+  OPEN
+  IN_REVIEW
+  RESOLVED
+  DISMISSED
+}
+
+model User {
+  id                 String              @id @default(cuid())
+  name               String
+  email              String              @unique
+  passwordHash       String
+  phone              String?             @unique
+  city               String              @default("Астрахань")
+  district           String?
+  avatarUrl          String?
+  role               UserRole            @default(USER)
+  isAdultConfirmed   Boolean             @default(false)
+  emailVerifiedAt    DateTime?
+  phoneVerifiedAt    DateTime?
+  pointsAvailable    Int                 @default(0)
+  pointsReserved     Int                 @default(0)
+  items              Item[]
+  favorites          Favorite[]
+  requestedExchanges Exchange[]          @relation("Requester")
+  ownedExchanges     Exchange[]          @relation("Owner")
+  messages           Message[]
+  transactions       PointsTransaction[]
+  notifications      Notification[]
+  complaints         Complaint[]         @relation("ComplaintAuthor")
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+}
+
+model Item {
+  id          String      @id @default(cuid())
+  ownerId     String
+  owner       User        @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  audience    String
+  category    String
+  subcategory String
+  brand       String?
+  brandTier   String      @default("BASE")
+  size        String
+  material    String
+  color       String
+  condition   String
+  pointsPrice Int
+  pricingNote String?
+  city        String      @default("Астрахань")
+  district    String
+  latitude    Float?
+  longitude   Float?
+  status      ItemStatus  @default(PUBLISHED)
+  images      ItemImage[]
+  favorites   Favorite[]
+  exchanges   Exchange[]
+  complaints  Complaint[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@index([status, city, district])
+  @@index([category, audience])
+}
+
+model ItemImage {
+  id        String @id @default(cuid())
+  itemId    String
+  item      Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  imageUrl  String
+  sortOrder Int    @default(0)
+}
+
+model Favorite {
+  userId String
+  itemId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item   Item   @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@id([userId, itemId])
+}
+
+model Exchange {
+  id                   String              @id @default(cuid())
+  itemId               String
+  item                 Item                @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  requesterId          String
+  requester            User                @relation("Requester", fields: [requesterId], references: [id])
+  ownerId              String
+  owner                User                @relation("Owner", fields: [ownerId], references: [id])
+  pointsPrice          Int
+  status               ExchangeStatus      @default(REQUESTED)
+  requesterConfirmedAt DateTime?
+  ownerConfirmedAt     DateTime?
+  expiresAt            DateTime?
+  completedAt          DateTime?
+  cancelledAt          DateTime?
+  meetingOptions       MeetingOption[]
+  messages             Message[]
+  transactions         PointsTransaction[]
+  complaints           Complaint[]
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  @@index([requesterId, status])
+  @@index([ownerId, status])
+  @@index([itemId, status])
+}
+
+model MeetingOption {
+  id           String       @id @default(cuid())
+  exchangeId   String
+  exchange     Exchange     @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+  locationKind LocationKind
+  placeLabel   String
+  latitude     Float?
+  longitude    Float?
+  startsAt     DateTime
+  selectedAt   DateTime?
+  createdAt    DateTime     @default(now())
+}
+
+model Message {
+  id         String      @id @default(cuid())
+  exchangeId String
+  exchange   Exchange    @relation(fields: [exchangeId], references: [id], onDelete: Cascade)
+  senderId   String
+  sender     User        @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  body       String
+  createdAt  DateTime    @default(now())
+  complaints Complaint[]
+
+  @@index([exchangeId, createdAt])
+}
+
+model PointsTransaction {
+  id          String          @id @default(cuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exchangeId  String?
+  exchange    Exchange?       @relation(fields: [exchangeId], references: [id], onDelete: SetNull)
+  amount      Int
+  type        TransactionType
+  description String
+  createdAt   DateTime        @default(now())
+
+  @@index([userId, createdAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+model Complaint {
+  id         String          @id @default(cuid())
+  authorId   String
+  author     User            @relation("ComplaintAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  target     ComplaintTarget
+  reason     String
+  details    String?
+  status     ComplaintStatus @default(OPEN)
+  itemId     String?
+  item       Item?           @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  exchangeId String?
+  exchange   Exchange?       @relation(fields: [exchangeId], references: [id], onDelete: SetNull)
+  messageId  String?
+  message    Message?        @relation(fields: [messageId], references: [id], onDelete: SetNull)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+}

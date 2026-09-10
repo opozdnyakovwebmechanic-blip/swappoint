@@ -1,0 +1,4 @@
+[deploy]
+preDeployCommand = ["npm run db:migrate"]
+healthcheckPath = "/"
+healthcheckTimeout = 120
