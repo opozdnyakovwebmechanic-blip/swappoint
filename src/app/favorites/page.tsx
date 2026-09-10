@@ -1,0 +1,1 @@
+"use client"; import {Layout,ItemGrid,items} from "@/components/app"; export default function Page(){return <Layout><section className="section"><p className="eyebrow">Сохранённое</p><h1>Избранное</h1><ItemGrid items={items.slice(1,5)}/></section></Layout>}

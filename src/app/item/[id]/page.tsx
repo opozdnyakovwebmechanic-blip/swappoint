@@ -1,0 +1,1 @@
+"use client"; import { ItemPage, items } from "@/components/app"; import {useParams} from "next/navigation"; export default function Page(){const {id}=useParams<{id:string}>();return <ItemPage item={items.find(x=>x.id===id)??items[0]}/>}

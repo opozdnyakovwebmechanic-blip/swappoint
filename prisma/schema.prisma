@@ -1,0 +1,9 @@
+generator client { provider = "prisma-client-js" }
+datasource db { provider = "sqlite"; url = env("DATABASE_URL") }
+enum ItemStatus { DRAFT PUBLISHED RESERVED EXCHANGE_PENDING COMPLETED HIDDEN REJECTED }
+enum ExchangeStatus { REQUESTED ACCEPTED DECLINED CONFIRMED }
+model User { id String @id @default(cuid()) name String email String @unique passwordHash String? city String district String pointsBalance Int @default(0) rating Float @default(5) items Item[] favorites Favorite[] transactions PointsTransaction[] createdAt DateTime @default(now()) }
+model Item { id String @id @default(cuid()) ownerId String owner User @relation(fields:[ownerId],references:[id]) title String description String category String brand String? size String color String condition String pointsPrice Int city String district String latitude Float longitude Float status ItemStatus @default(PUBLISHED) images ItemImage[] favorites Favorite[] createdAt DateTime @default(now()) }
+model ItemImage { id String @id @default(cuid()) itemId String item Item @relation(fields:[itemId],references:[id],onDelete:Cascade) imageUrl String order Int @default(0) }
+model Favorite { userId String itemId String user User @relation(fields:[userId],references:[id],onDelete:Cascade) item Item @relation(fields:[itemId],references:[id],onDelete:Cascade) @@id([userId,itemId]) }
+model PointsTransaction { id String @id @default(cuid()) userId String user User @relation(fields:[userId],references:[id]) amount Int description String exchangeId String? createdAt DateTime @default(now()) }
