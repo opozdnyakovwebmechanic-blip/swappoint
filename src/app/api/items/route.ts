@@ -24,7 +24,7 @@ const itemSchema = z.object({
 export async function GET() {
   const items = await prisma.item.findMany({
     where: { status: "PUBLISHED" },
-    include: { images: { orderBy: { sortOrder: "asc" }, take: 1 }, owner: { select: { name: true } } },
+    select: { id: true, title: true, category: true, size: true, condition: true, pointsPrice: true, district: true, color: true, images: { orderBy: { sortOrder: "asc" }, take: 1 }, owner: { select: { name: true } } },
     orderBy: { createdAt: "desc" },
     take: 100,
   });

@@ -5,7 +5,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const { id } = await params;
   const item = await prisma.item.findFirst({
     where: { id, status: { in: ["PUBLISHED", "RESERVED", "EXCHANGE_PENDING"] } },
-    include: { images: { orderBy: { sortOrder: "asc" } }, owner: { select: { name: true } } },
+    select: { id: true, title: true, description: true, category: true, size: true, condition: true, pointsPrice: true, district: true, color: true, images: { orderBy: { sortOrder: "asc" } }, owner: { select: { name: true } } },
   });
   if (!item) return NextResponse.json({ error: "Вещь не найдена." }, { status: 404 });
   return NextResponse.json({ item });
