@@ -15,6 +15,8 @@ const itemSchema = z.object({
   material: z.string().trim().min(2).max(100),
   color: z.string().trim().min(2).max(40),
   district: z.string().trim().min(2).max(80),
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
   description: z.string().trim().min(10).max(2000),
   imageUrls: z.array(z.string().url()).min(3).max(8),
 });
@@ -57,6 +59,8 @@ export async function POST(request: Request) {
       color: input.color,
       condition: input.condition,
       district: input.district,
+      latitude: input.latitude,
+      longitude: input.longitude,
       pointsPrice: price.points,
       pricingNote: price.note,
       images: { create: input.imageUrls.map((imageUrl, sortOrder) => ({ imageUrl, sortOrder })) },
